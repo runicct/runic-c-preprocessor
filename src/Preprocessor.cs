@@ -23,11 +23,12 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace Runic.C
 {
-    public partial class Preprocessor : ITokenStream
+    public abstract partial class Preprocessor : ITokenStream
     {
         /// <summary>
         /// Can be used to represent tokens that are ignored by the preprocessor. This is useful for internal types, custom keywords, etc.
@@ -114,7 +115,11 @@ namespace Runic.C
                     builder.Append("\"");
                     return builder.ToString();
                 }
+#if NET6_0_OR_GREATER
                 static bool IsValidToken(Token? token)
+#else
+                static bool IsValidToken(Token token)
+#endif
                 {
                     if (token == null) { return true; }
                     if (token.Value == null) { return true; }
@@ -226,7 +231,7 @@ namespace Runic.C
                                             Token lastAToken = aTokens[aTokens.Length - 1];
                                             string bValue = "";
                                             if (bTokens.Length > 0) { bValue = bTokens[0].Value; }
-                                            Token concatenatedResult =  Context.TokenFactory.CreateToken(lastAToken.StartLine, lastAToken.StartColumn, lastAToken.EndLine, lastAToken.EndColumn, lastAToken.File, lastAToken.Value + bValue);
+                                            Token concatenatedResult =  Context.CreateToken(lastAToken.StartLine, lastAToken.StartColumn, lastAToken.EndLine, lastAToken.EndColumn, lastAToken.File, lastAToken.Value + bValue);
                                             if (!IsValidToken(concatenatedResult))
                                             {
                                                 Context.Error_InvalidTokenProducedByConcatenation(this, concatenatedResult);
@@ -241,7 +246,7 @@ namespace Runic.C
                                         else if (bTokens.Length > 0)
                                         {
                                             Token firstBToken = bTokens[0];
-                                            result.Add(Context.TokenFactory.CreateToken(firstBToken.StartLine, firstBToken.StartColumn, firstBToken.EndLine, firstBToken.EndColumn, firstBToken.File, firstBToken.Value));
+                                            result.Add(Context.CreateToken(firstBToken.StartLine, firstBToken.StartColumn, firstBToken.EndLine, firstBToken.EndColumn, firstBToken.File, firstBToken.Value));
                                         }
                                         for (int x = 1; x < bTokens.Length; x++) { result.Add(bTokens[x]); }
 
@@ -274,13 +279,13 @@ namespace Runic.C
                                     Token[] argument = Arguments[argumentIndex];
                                     if (argument.Length > 0)
                                     {
-                                        result.Add(Context.TokenFactory.CreateToken(argument[0].StartLine, argument[0].StartColumn, argument[0].EndLine, argument[0].EndColumn, argument[0].File, Stringify(argument)));
+                                        result.Add(Context.CreateToken(argument[0].StartLine, argument[0].StartColumn, argument[0].EndLine, argument[0].EndColumn, argument[0].File, Stringify(argument)));
                                     }
                                 }
                             }
                             else
                             {
-                                result.Add(Context.TokenFactory.CreateToken(_value[n].StartLine, _value[n].StartColumn, _value[n].EndLine, _value[n].EndColumn, _value[n].File, Stringify(_value[n], true)));
+                                result.Add(Context.CreateToken(_value[n].StartLine, _value[n].StartColumn, _value[n].EndLine, _value[n].EndColumn, _value[n].File, Stringify(_value[n], true)));
                             }
                             continue;
                         }
@@ -294,8 +299,12 @@ namespace Runic.C
                                 for (int x = 0; x < Arguments[argumentIndex].Length; x++)
                                 {
                                     Token[] argumentTokens = Arguments[argumentIndex];
+#if NET6_0_OR_GREATER
                                     Macro? macro = null;
-                                    if (Context._Macros.TryGetValue(argumentTokens[x].Value, out macro) && macro != null)
+#else
+                                    Macro macro = null;
+#endif
+                                    if (Context._macros.TryGetValue(argumentTokens[x].Value, out macro) && macro != null)
                                     {
                                         Macro.Regular macroRegular = macro as Macro.Regular;
                                         if (macroRegular != null)
@@ -325,17 +334,23 @@ namespace Runic.C
                 }
             }
         }
+#if NET6_0_OR_GREATER
+        protected abstract Token CreateToken(int startLine, int startColumn, int endLine, int endColumn, string file, string? value);
+#else
+        protected abstract Token CreateToken(int startLine, int startColumn, int endLine, int endColumn, string file, string value);
+#endif
         TokenQueue _tokenQueue;
-        ITokenFactory _tokenFactory;
-        internal ITokenFactory TokenFactory { get { return _tokenFactory; } }
-        public Preprocessor(ITokenFactory tokenFactory, ITokenStream TokenStream)
+        public Preprocessor(ITokenStream tokenStream)
         {
-            _tokenQueue = new TokenQueue(TokenStream);
-            _tokenFactory = tokenFactory;
+            _tokenQueue = new TokenQueue(tokenStream);
         }
         bool _preprocessor = false;
         bool _newLine = true;
-        public virtual Macro? ResolveMacro(string MacroName)
+#if NET6_0_OR_GREATER
+        public virtual Macro? ResolveMacro(string macroName)
+#else
+        public virtual Macro ResolveMacro(string macroName)
+#endif
         {
             return null;
         }
@@ -343,36 +358,36 @@ namespace Runic.C
         {
             return;
         }
-        public virtual void Warning_IgnoredExtraArgument(Token Directive) { }
-        public virtual void Warning_IncompletePreprocessorDirective(Token Token) { }
-        public virtual void Warning_InvalidMacroDefinition(Token Directive, Token MacroName) { }
-        public virtual void Warning_InvalidMacroName(Token Directive, Token MacroName) { }
-        public virtual void Warning_MacroArgumentRedefinition(Token Directive, Token MacroName, string ArgumentName) { }
-        public virtual void Warning_InvalidPreprocessorDirective(Token Directive) { }
-        public virtual void Warning_IfDirectiveUndefinedValue(Token Directive) { }
-        public virtual void Warning_MismatchedDirective(Token Directive) { }
-        public virtual void Warning_MacroRedefinition(Token Directive, string MacroName, Macro OldMacro, Macro NewMacro) { }
-        public virtual void Warning_ExtraToken(Token Directive, Token Extra) { }
-        public virtual void Error_InvalidMacroCall(Macro Name, Token Token) { }
-        public virtual void Error_IfDirectiveInvalidExpression(Token Token) { }
-        public virtual void Error_IfDirectiveInvalidFunction(Token Function, Token Token) { }
-        public virtual void Error_IfDirectiveFloatingPointInExpression(Token Token) { }
-        public virtual void Error_IfDirectiveStringInExpression(Token Token) { }
-        public virtual void Error_IncompleteMacroDefinition(Token Directive, Token MacroName) { }
-        public virtual void Error_MissingMacroArgument(Macro Name, Token Token, int ArgumentIndex) { }
-        public virtual void Error_ExtraMacroArgument(Macro Name, Token Token) { }
-        public virtual void Error_InvalidIncludeDirective(Token Include, Token InvalidToken) { }
-        public virtual void Error_IncludeDirectiveFileNotFound(Token Include, string File) { }
-        public virtual void Error_UserDefinedError(Token Directive, string ErrorMessage) { }
-        public virtual void Error_InvalidTokenProducedByConcatenation(Macro Macro, Token Token) { }
-        public static bool IsValidMacroName(string Name)
+        public virtual void Warning_IgnoredExtraArgument(Token directive) { }
+        public virtual void Warning_IncompletePreprocessorDirective(Token token) { }
+        public virtual void Warning_InvalidMacroDefinition(Token directive, Token macroName) { }
+        public virtual void Warning_InvalidMacroName(Token directive, Token macroName) { }
+        public virtual void Warning_MacroArgumentRedefinition(Token directive, Token macroName, string argumentName) { }
+        public virtual void Warning_InvalidPreprocessorDirective(Token directive) { }
+        public virtual void Warning_IfDirectiveUndefinedValue(Token directive) { }
+        public virtual void Warning_MismatchedDirective(Token directive) { }
+        public virtual void Warning_MacroRedefinition(Token directive, string macroName, Macro oldMacro, Macro newMacro) { }
+        public virtual void Warning_ExtraToken(Token directive, Token extra) { }
+        public virtual void Error_InvalidMacroCall(Macro name, Token token) { }
+        public virtual void Error_IfDirectiveInvalidExpression(Token token) { }
+        public virtual void Error_IfDirectiveInvalidFunction(Token function, Token token) { }
+        public virtual void Error_IfDirectiveFloatingPointInExpression(Token token) { }
+        public virtual void Error_IfDirectiveStringInExpression(Token token) { }
+        public virtual void Error_IncompleteMacroDefinition(Token directive, Token macroName) { }
+        public virtual void Error_MissingMacroArgument(Macro name, Token token, int argumentIndex) { }
+        public virtual void Error_ExtraMacroArgument(Macro name, Token token) { }
+        public virtual void Error_InvalidIncludeDirective(Token include, Token invalidToken) { }
+        public virtual void Error_IncludeDirectiveFileNotFound(Token include, string file) { }
+        public virtual void Error_UserDefinedError(Token directive, string errorMessage) { }
+        public virtual void Error_InvalidTokenProducedByConcatenation(Macro macro, Token token) { }
+        public static bool IsValidMacroName(string name)
         {
-            if (Name == null) { return false; }
-            if (Name.Length == 0) { return false; }
-            if (char.IsDigit(Name[0])) { return false; }
-            for (int n = 0; n < Name.Length; n++)
+            if (name == null) { return false; }
+            if (name.Length == 0) { return false; }
+            if (char.IsDigit(name[0])) { return false; }
+            for (int n = 0; n < name.Length; n++)
             {
-                switch (Name[n])
+                switch (name[n])
                 {
                     case '\\':
                     case '+':
@@ -401,52 +416,69 @@ namespace Runic.C
                     case '.': return false;
 
                     default:
-                        if (char.IsWhiteSpace(Name[n])) { return false; }
+                        if (char.IsWhiteSpace(name[n])) { return false; }
                         break;
                 }
             }
             return true;
         }
+#if NET6_0_OR_GREATER
         public virtual Token[]? ResolveInclude(Token directive, Token file, bool systemHeadersFirst)
+#else
+        public virtual Token[] ResolveInclude(Token directive, Token file, bool systemHeadersFirst)
+#endif
         {
             return null;
         }
-        void processIncludeDirective(Token Directive, Token[] Tokens)
+        void processIncludeDirective(Token directive, Token[] tokens)
         {
-            if (Tokens.Length == 0)
+            if (tokens.Length == 0)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
-            for (int n = 0; n < Tokens.Length; n++)
+            for (int n = 0; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value == "") { continue; }
-                if (Tokens[n].Value.StartsWith("<") && Tokens[n].Value.EndsWith(">"))
+                if (tokens[n].Value == "") { continue; }
+                if (tokens[n].Value.StartsWith("<") && tokens[n].Value.EndsWith(">"))
                 {
-                    string fileName = Tokens[n].Value.Substring(1, Tokens[n].Value.Length - 2);
-                    Token file = _tokenFactory.CreateToken(Tokens[n].StartLine, Tokens[n].StartColumn, Tokens[n].EndLine, Tokens[n].EndColumn, Tokens[n].File, fileName);
-                    Token[]? tokens = ResolveInclude(Directive, file, true);
-                    if (tokens == null) { Error_IncludeDirectiveFileNotFound(Directive, fileName); }
-                    else { _tokenQueue.FrontLoadTokens(tokens); }
+                    string fileName = tokens[n].Value.Substring(1, tokens[n].Value.Length - 2);
+                    Token file = CreateToken(tokens[n].StartLine, tokens[n].StartColumn, tokens[n].EndLine, tokens[n].EndColumn, tokens[n].File, fileName);
+#if NET6_0_OR_GREATER
+                    Token[]? includeTokens = ResolveInclude(directive, file, true);
+#else
+                    Token[] includeTokens = ResolveInclude(directive, file, true);
+#endif
+                    if (includeTokens == null) { Error_IncludeDirectiveFileNotFound(directive, fileName); }
+                    else { _tokenQueue.FrontLoadTokens(includeTokens); }
                 }
-                else if(Tokens[n].Value.StartsWith("\"") && Tokens[n].Value.EndsWith("\""))
+                else if(tokens[n].Value.StartsWith("\"") && tokens[n].Value.EndsWith("\""))
                 {
-                    string fileName = Tokens[n].Value.Substring(1, Tokens[n].Value.Length - 2);
-                    Token file = _tokenFactory.CreateToken(Tokens[n].StartLine, Tokens[n].StartColumn, Tokens[n].EndLine, Tokens[n].EndColumn, Tokens[n].File, fileName);
-                    Token[]? tokens = ResolveInclude(Directive, file, false);
-                    if (tokens == null) { Error_IncludeDirectiveFileNotFound(Directive, fileName); }
-                    else { _tokenQueue.FrontLoadTokens(tokens); }
+                    string fileName = tokens[n].Value.Substring(1, tokens[n].Value.Length - 2);
+                    Token file = CreateToken(tokens[n].StartLine, tokens[n].StartColumn, tokens[n].EndLine, tokens[n].EndColumn, tokens[n].File, fileName);
+#if NET6_0_OR_GREATER
+                    Token[]? includeTokens = ResolveInclude(directive, file, false);
+#else
+                    Token[] includeTokens = ResolveInclude(directive, file, false);
+#endif
+                    if (includeTokens == null) { Error_IncludeDirectiveFileNotFound(directive, fileName); }
+                    else { _tokenQueue.FrontLoadTokens(includeTokens); }
                 }
                 else
                 {
-                    Error_InvalidIncludeDirective(Directive, Tokens[n]);
+                    Error_InvalidIncludeDirective(directive, tokens[n]);
                 }
             }
         }
+        Dictionary<string, Macro> _macros = new Dictionary<string, Macro>();
         void DefineMacro(Token directive, string name)
         {
             Macro.Regular newMacro = new Macro.Regular(name, new Token[0]);
+#if NET6_0_OR_GREATER
             Macro? existingMacro = ResolveMacro(name);
+#else
+            Macro existingMacro = ResolveMacro(name);
+#endif
             if (existingMacro != null)
             {
                 Macro.Regular existingValueMacro = existingMacro as Macro.Regular;
@@ -454,57 +486,55 @@ namespace Runic.C
                     existingValueMacro.Value.Length != 0)
                 {
                     Warning_MacroRedefinition(directive, name, existingMacro, newMacro);
-                    if (_Macros.ContainsKey(name)) { _Macros[name] = newMacro; }
-                    else { _Macros.Add(name, newMacro); }
+                    if (_macros.ContainsKey(name)) { _macros[name] = newMacro; }
+                    else { _macros.Add(name, newMacro); }
                 }
             }
             else
             {
-                _Macros.Add(name, newMacro);
+                _macros.Add(name, newMacro);
             }
             return;
         }
-
-        Dictionary<string, Macro> _Macros = new Dictionary<string, Macro>();
-        void processDefineDirective(Token Directive, Token[] Tokens)
+        void processDefineDirective(Token directive, Token[] tokens)
         {
-            if (Tokens.Length == 0)
+            if (tokens.Length == 0)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
             int n = 0;
 
             Token nameToken = null;
-            for (; n < Tokens.Length; n++)
+            for (; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value != " " && Tokens[n].Value != "\\\n")
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n")
                 {
-                    nameToken = Tokens[n];
+                    nameToken = tokens[n];
                     break;
                 }
             }
             if (nameToken == null)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
 
             string name = nameToken.Value;
             if (!IsValidMacroName(name))
             {
-                Warning_InvalidMacroName(Directive, nameToken);
+                Warning_InvalidMacroName(directive, nameToken);
                 return;
             }
             n++;
 
             bool hasSpaces = false;
             Token firstToken = null;
-            for (; n < Tokens.Length; n++)
+            for (; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value != " " && Tokens[n].Value != "\\\n")
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n")
                 {
-                    firstToken = Tokens[n];
+                    firstToken = tokens[n];
                     break;
                 }
                 hasSpaces = true;
@@ -512,7 +542,7 @@ namespace Runic.C
 
             if (firstToken == null)
             {
-                DefineMacro(Directive, name);
+                DefineMacro(directive, name);
                 return;
             }
 
@@ -523,40 +553,40 @@ namespace Runic.C
                 Dictionary<string, int> arguments = new Dictionary<string, int>();
                 for (;; n++)
                 {
-                    if (n >= Tokens.Length)
+                    if (n >= tokens.Length)
                     {
-                        Error_IncompleteMacroDefinition(Directive, nameToken);
+                        Error_IncompleteMacroDefinition(directive, nameToken);
                         return;
                     }
-                    if (Tokens[n].Value == " " || Tokens[n].Value == "\\\n") { continue; }
-                    string argumentName = Tokens[n].Value;
-                    if (n >= Tokens.Length - 1)
+                    if (tokens[n].Value == " " || tokens[n].Value == "\\\n") { continue; }
+                    string argumentName = tokens[n].Value;
+                    if (n >= tokens.Length - 1)
                     {
-                        Error_IncompleteMacroDefinition(Directive, nameToken);
+                        Error_IncompleteMacroDefinition(directive, nameToken);
                         return;
                     }
 
                     if (arguments.ContainsKey(argumentName))
                     {
-                        Warning_MacroArgumentRedefinition(Directive, nameToken, argumentName);
+                        Warning_MacroArgumentRedefinition(directive, nameToken, argumentName);
                         return;
                     }
 
                     arguments.Add(argumentName, argumentIndex);
 
                     n++;
-                    while ((Tokens[n].Value == " " || Tokens[n].Value == "\\\n") && n < Tokens.Length) { n++; }
+                    while ((tokens[n].Value == " " || tokens[n].Value == "\\\n") && n < tokens.Length) { n++; }
 
-                    if (n >= Tokens.Length)
+                    if (n >= tokens.Length)
                     {
-                        Error_IncompleteMacroDefinition(Directive, nameToken);
+                        Error_IncompleteMacroDefinition(directive, nameToken);
                         return;
                     }
 
-                    if (Tokens[n].Value == ")") { n++; break; }
-                    if (Tokens[n].Value != ",")
+                    if (tokens[n].Value == ")") { n++; break; }
+                    if (tokens[n].Value != ",")
                     {
-                        Warning_InvalidMacroDefinition(Directive, nameToken);
+                        Warning_InvalidMacroDefinition(directive, nameToken);
                         return;
                     }
 
@@ -565,11 +595,11 @@ namespace Runic.C
 
                 List<Token> value = new List<Token>();
                 Token lastSpaceToken = null;
-                for (int i = 0; n < Tokens.Length; n++, i++)
+                for (int i = 0; n < tokens.Length; n++, i++)
                 {
-                    if (Tokens[n].Value == " " || Tokens[n].Value == "\\\n")
+                    if (tokens[n].Value == " " || tokens[n].Value == "\\\n")
                     {
-                        lastSpaceToken = Tokens[n];
+                        lastSpaceToken = tokens[n];
                     }
                     else
                     {
@@ -578,20 +608,24 @@ namespace Runic.C
                             if (value.Count > 0) { value.Add(lastSpaceToken); }
                             lastSpaceToken = null;
                         }
-                        value.Add(Tokens[n]);
+                        value.Add(tokens[n]);
                     }
                 }
                 Macro newMacro = new Macro.WithArguments(name, arguments, value.ToArray());
+#if NET6_0_OR_GREATER
                 Macro? existingMacro = ResolveMacro(name);
+#else
+                Macro existingMacro = ResolveMacro(name);
+#endif
                 if (existingMacro != null)
                 {
-                    Warning_MacroRedefinition(Directive, name, existingMacro, newMacro);
-                    if (_Macros.ContainsKey(name)) { _Macros[name] = newMacro; }
-                    else { _Macros.Add(name, newMacro); }
+                    Warning_MacroRedefinition(directive, name, existingMacro, newMacro);
+                    if (_macros.ContainsKey(name)) { _macros[name] = newMacro; }
+                    else { _macros.Add(name, newMacro); }
                 }
                 else
                 {
-                    _Macros.Add(name, newMacro);
+                    _macros.Add(name, newMacro);
                 }
                 return;
             }
@@ -599,32 +633,36 @@ namespace Runic.C
             {
                 List<Token> value = new List<Token>();
                 Token lastSpaceToken = null;
-                for (int x = 0; n < Tokens.Length; n++, x++)
+                for (int x = 0; n < tokens.Length; n++, x++)
                 {
-                    if (Tokens[n].Value == " " || Tokens[n].Value == "\\\n")
+                    if (tokens[n].Value == " " || tokens[n].Value == "\\\n")
                     {
-                        lastSpaceToken = Tokens[n];
+                        lastSpaceToken = tokens[n];
                     }
                     else
                     {
                         if (lastSpaceToken != null && value.Count > 0) { value.Add(lastSpaceToken); }
-                        value.Add(Tokens[n]);
+                        value.Add(tokens[n]);
                         lastSpaceToken = null;
                     }
                 }
 
                 Macro newMacro = new Macro.Regular(name, value.ToArray());
 
+#if NET6_0_OR_GREATER
                 Macro? existingMacro = ResolveMacro(name);
+#else
+                Macro existingMacro = ResolveMacro(name);
+#endif
                 if (existingMacro != null)
                 {
                     Macro.Regular existingValueMacro = existingMacro as Macro.Regular;
                     if (existingValueMacro == null ||
                         existingValueMacro.Value.Length != value.Count)
                     {
-                        Warning_MacroRedefinition(Directive, name, existingMacro, newMacro);
-                        if (_Macros.ContainsKey(name)) { _Macros[name] = newMacro; }
-                        else { _Macros.Add(name, newMacro); }
+                        Warning_MacroRedefinition(directive, name, existingMacro, newMacro);
+                        if (_macros.ContainsKey(name)) { _macros[name] = newMacro; }
+                        else { _macros.Add(name, newMacro); }
                         return;
                     }
                     else
@@ -633,9 +671,9 @@ namespace Runic.C
                         {
                             if (value[x].Value != existingValueMacro.Value[x].Value)
                             {
-                                Warning_MacroRedefinition(Directive, name, existingMacro, newMacro);
-                                if (_Macros.ContainsKey(name)) { _Macros[name] = newMacro; }
-                                else { _Macros.Add(name, newMacro); }
+                                Warning_MacroRedefinition(directive, name, existingMacro, newMacro);
+                                if (_macros.ContainsKey(name)) { _macros[name] = newMacro; }
+                                else { _macros.Add(name, newMacro); }
                                 return;
                             }
                         }
@@ -644,41 +682,45 @@ namespace Runic.C
                 }
                 else
                 {
-                    _Macros.Add(name, newMacro);
+                    _macros.Add(name, newMacro);
                 }
             }
         }
 
-        void processUndefDirective(Token Directive, Token[] Tokens)
+        void processUndefDirective(Token directive, Token[] tokens)
         {
-            if (Tokens.Length == 0)
+            if (tokens.Length == 0)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
             int n = 0;
             Token nameToken = null;
-            for (; n < Tokens.Length; n++)
+            for (; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value != " " && Tokens[n].Value != "\\\n")
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n")
                 {
-                    nameToken = Tokens[n];
+                    nameToken = tokens[n];
                     break;
                 }
             }
             if (nameToken == null)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
 
 
-            if (_Macros.ContainsKey(nameToken.Value))
+            if (_macros.ContainsKey(nameToken.Value))
             {
-                _Macros.Remove(nameToken.Value);
+                _macros.Remove(nameToken.Value);
             }
 
+#if NET6_0_OR_GREATER
             Macro? existingMacro = ResolveMacro(nameToken.Value);
+#else
+            Macro existingMacro = ResolveMacro(nameToken.Value);
+#endif
             if (existingMacro != null)
             {
                 UndefMacro(existingMacro);
@@ -686,47 +728,47 @@ namespace Runic.C
         }
 
         PreprocessorIfElseStack preprocessorIfElseStack = new PreprocessorIfElseStack();
-        bool EvaluateExpression(Token[] Expression)
+        bool EvaluateExpression(Token[] expression)
         {
-            return PreprocessorExpressionEval.Evaluate(this, Expression);
+            return PreprocessorExpressionEval.Evaluate(this, expression);
         }
 
-        void processIfDirective(Token Directive, Token[] Tokens, bool ElseIf)
+        void processIfDirective(Token directive, Token[] tokens, bool elseIf)
         {
             if (preprocessorIfElseStack.Disabled)
             {
-                if (ElseIf) { preprocessorIfElseStack.EnterDisabledElseIf(Directive); }
-                else { preprocessorIfElseStack.EnterDisabledIf(Directive); }
+                if (elseIf) { preprocessorIfElseStack.EnterDisabledElseIf(directive); }
+                else { preprocessorIfElseStack.EnterDisabledIf(directive); }
                 return;
             }
 
             if (!preprocessorIfElseStack.CurrentState)
             {
-                if (!ElseIf) 
+                if (!elseIf) 
                 {
-                    preprocessorIfElseStack.EnterDisabledIf(Directive);
+                    preprocessorIfElseStack.EnterDisabledIf(directive);
                     return;
                 }
             }
 
-            if (Tokens.Length == 0)
+            if (tokens.Length == 0)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
             int n = 0;
-            for (; n < Tokens.Length; n++)
+            for (; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value != " " && Tokens[n].Value != "\\\n") { break; }
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n") { break; }
             }
 
             List<Token> expression = new List<Token>();
             Token lastSpaceToken = null;
-            for (; n < Tokens.Length; n++)
+            for (; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value == " " || Tokens[n].Value == "\\\n")
+                if (tokens[n].Value == " " || tokens[n].Value == "\\\n")
                 {
-                    lastSpaceToken = Tokens[n];
+                    lastSpaceToken = tokens[n];
                 }
                 else
                 {
@@ -735,7 +777,7 @@ namespace Runic.C
                         expression.Add(lastSpaceToken);
                         lastSpaceToken = null;
                     }
-                    expression.Add(Tokens[n]);
+                    expression.Add(tokens[n]);
                 }
             }
 
@@ -745,50 +787,50 @@ namespace Runic.C
                 expressionResult = EvaluateExpression(expression.ToArray());
             }
 
-            if (ElseIf) { preprocessorIfElseStack.EnterElseIf(Directive, expressionResult); }
-            else { preprocessorIfElseStack.EnterIf(Directive, expressionResult); }
+            if (elseIf) { preprocessorIfElseStack.EnterElseIf(directive, expressionResult); }
+            else { preprocessorIfElseStack.EnterIf(directive, expressionResult); }
         }
-        void processIfdefDirective(Token Directive, Token[] Tokens, bool Defined)
+        void processIfdefDirective(Token directive, Token[] tokens, bool defined)
         {
             if (!preprocessorIfElseStack.CurrentState)
             {
-                preprocessorIfElseStack.EnterDisabledIf(Directive);
+                preprocessorIfElseStack.EnterDisabledIf(directive);
                 return;
             }
 
-            if (Tokens.Length == 0)
+            if (tokens.Length == 0)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
             int n = 0;
             Token nameToken = null;
-            for (; n < Tokens.Length; n++)
+            for (; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value != " " && Tokens[n].Value != "\\\n")
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n")
                 {
-                    nameToken = Tokens[n];
+                    nameToken = tokens[n];
                     break;
                 }
             }
             if (nameToken == null)
             {
-                Warning_IncompletePreprocessorDirective(Directive);
+                Warning_IncompletePreprocessorDirective(directive);
                 return;
             }
             n++;
-            for (; n < Tokens.Length; n++)
+            for (; n < tokens.Length; n++)
             {
-                if (Tokens[n].Value != " " && Tokens[n].Value != "\\\n") { break; }
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n") { break; }
             }
-            if (n < Tokens.Length)
+            if (n < tokens.Length)
             {
-                Warning_ExtraToken(Directive, Tokens[n]);
+                Warning_ExtraToken(directive, tokens[n]);
             }
 
             bool condition = (ResolveMacro(nameToken.Value) != null);
-            if (!Defined) { condition = !condition; }
-            preprocessorIfElseStack.EnterIf(Directive, condition);
+            if (!defined) { condition = !condition; }
+            preprocessorIfElseStack.EnterIf(directive, condition);
         }
         void processElseDirective(Token directive, Token[] tokens)
         {
@@ -815,27 +857,27 @@ namespace Runic.C
 
             Error_UserDefinedError(directive, message.ToString());
         }
-        void ProcessDirective(Token directive, Token[] Arguments)
+        void ProcessDirective(Token directive, Token[] arguments)
         {
             string directiveName = directive.Value.ToLowerInvariant();
             switch (directive.Value.ToLowerInvariant())
             {
-                case "ifdef": processIfdefDirective(directive, Arguments, true); return;
-                case "if": processIfDirective(directive, Arguments, false); return;
-                case "ifndef": processIfdefDirective(directive, Arguments, false); return;
-                case "else": processElseDirective(directive, Arguments); return;
-                case "elif": processIfDirective(directive, Arguments, true); return;
-                case "endif": processEndifDirective(directive, Arguments); return;
+                case "ifdef": processIfdefDirective(directive, arguments, true); return;
+                case "if": processIfDirective(directive, arguments, false); return;
+                case "ifndef": processIfdefDirective(directive, arguments, false); return;
+                case "else": processElseDirective(directive, arguments); return;
+                case "elif": processIfDirective(directive, arguments, true); return;
+                case "endif": processEndifDirective(directive, arguments); return;
             }
 
             if (!preprocessorIfElseStack.CurrentState) { return; }
 
             switch (directive.Value.ToLowerInvariant())
             {
-                case "include": if (preprocessorIfElseStack.CurrentState) { processIncludeDirective(directive, Arguments); } return;
-                case "define": if (preprocessorIfElseStack.CurrentState) { processDefineDirective(directive, Arguments); } return;
-                case "undef": if (preprocessorIfElseStack.CurrentState) { processUndefDirective(directive, Arguments); } return;
-                case "error": processErrorDirective(directive, Arguments); return;
+                case "include": if (preprocessorIfElseStack.CurrentState) { processIncludeDirective(directive, arguments); } return;
+                case "define": if (preprocessorIfElseStack.CurrentState) { processDefineDirective(directive, arguments); } return;
+                case "undef": if (preprocessorIfElseStack.CurrentState) { processUndefDirective(directive, arguments); } return;
+                case "error": processErrorDirective(directive, arguments); return;
             }
         }
         public Token ReadNextToken()
@@ -852,14 +894,22 @@ namespace Runic.C
                     {
                         // Preprocessor Directive
                         List<Token> arguments = new List<Token>();
+#if NET6_0_OR_GREATER
                         Token? directiveToken = _tokenQueue.ReadNextToken();
+#else
+                        Token directiveToken = _tokenQueue.ReadNextToken();
+#endif
                         while (directiveToken != null && directiveToken.Value == " ")
                         {
                             directiveToken = _tokenQueue.ReadNextToken();
                         }
                         if (directiveToken == null) { return null; }
 
+#if NET6_0_OR_GREATER
                         Token? argumentToken = _tokenQueue.ReadNextToken();
+#else
+                        Token argumentToken = _tokenQueue.ReadNextToken();
+#endif
                         while (true)
                         {
                             if (argumentToken == null)
@@ -899,7 +949,11 @@ namespace Runic.C
                     if (!preprocessorIfElseStack.CurrentState) { goto restart; }
                     if (IsValidMacroName(token.Value))
                     {
+#if NET6_0_OR_GREATER
                         Macro? macro = ResolveMacro(token.Value);
+#else
+                        Macro macro = ResolveMacro(token.Value);
+#endif
                         if (macro != null)
                         {
                             Token macroToken = token;
@@ -910,7 +964,7 @@ namespace Runic.C
                                 for (int n = 0; n < clonedToken.Length; n++)
                                 {
                                     Token sourceToken = macroRegular.Value[n];
-                                    clonedToken[n] = _tokenFactory.CreateToken(token.StartLine, token.StartColumn, token.EndLine, token.EndColumn, token.File, sourceToken.Value);
+                                    clonedToken[n] = CreateToken(token.StartLine, token.StartColumn, token.EndLine, token.EndColumn, token.File, sourceToken.Value);
                                 }
                                 _tokenQueue.FrontLoadTokens(clonedToken);
                                 goto restart;
@@ -958,7 +1012,11 @@ namespace Runic.C
                                     }
                                     List<Token> argument = new List<Token>();
 
+#if NET6_0_OR_GREATER
                                     Token? argumentFragment = _tokenQueue.ReadNextToken();
+#else
+                                    Token argumentFragment = _tokenQueue.ReadNextToken();
+#endif
                                     if (argumentFragment == null)
                                     {
                                         Error_InvalidMacroCall(macroWithArguments, token);
@@ -1024,7 +1082,7 @@ namespace Runic.C
                                     for (int n = 0; n < clonedToken.Length; n++)
                                     {
                                         Token sourceToken = expandedMacro[n];
-                                        clonedToken[n] = _tokenFactory.CreateToken(token.StartLine, token.StartColumn, token.EndLine, token.EndColumn, token.File, sourceToken.Value);
+                                        clonedToken[n] = CreateToken(token.StartLine, token.StartColumn, token.EndLine, token.EndColumn, token.File, sourceToken.Value);
                                     }
                                     _tokenQueue.FrontLoadTokens(clonedToken);
                                 }

@@ -30,9 +30,9 @@ namespace Runic.C
     {
         public static class OperatorPrecedence
         {
-            public static int GetPrecendence(string Operator)
+            public static int GetPrecendence(string @operator)
             {
-                switch (Operator)
+                switch (@operator)
                 {
                     case "(":
                     case ")":

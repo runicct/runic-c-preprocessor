@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Runic.C.Preprocessor</AssemblyName>
+    <RootNamespace>Runic.C.Preprocessor</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\ExpressionEvaluator.cs" Link="ExpressionEvaluator.cs" />
+    <Compile Include="..\..\src\IfElseStack.cs" Link="IfElseStack.cs" />
+    <Compile Include="..\..\src\Literal.cs" Link="Literal.cs" />
+    <Compile Include="..\..\src\LiteralParser.cs" Link="LiteralParser.cs" />
+    <Compile Include="..\..\src\OperatorPrecedence.cs" Link="OperatorPrecedence.cs" />
+    <Compile Include="..\..\src\Preprocessor.cs" Link="Preprocessor.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Runic.Token" Version="1.0.1" />
+  </ItemGroup>
+</Project>

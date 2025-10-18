@@ -23,6 +23,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace Runic.C
@@ -39,69 +40,69 @@ namespace Runic.C
             {
                 bool _value;
                 public bool Value { get { return _value; } }
-                public BooleanValue(bool Value) { _value = Value; }
+                public BooleanValue(bool value) { _value = value; }
             }
             internal class IntegerValue : Value
             {
                 BigInteger _value;
                 public BigInteger Value { get { return _value; } }
-                public IntegerValue(BigInteger Value) { _value = Value; }
+                public IntegerValue(BigInteger value) { _value = value; }
             }
             abstract class Expression
             {
                 Token _Token;
                 public Token Token { get { return _Token; } }
-                public Expression(Token Token) { _Token = Token; }
-                internal abstract Value Evaluate(Preprocessor Context);
+                public Expression(Token token) { _Token = token; }
+                internal abstract Value Evaluate(Preprocessor context);
             }
             class CstInteger : Expression
             {
                 BigInteger _value;
-                public CstInteger(Token Token, BigInteger Value) : base(Token)
+                public CstInteger(Token token, BigInteger value) : base(token)
                 {
-                    _value = Value;
+                    _value = value;
                 }
                 public override string ToString() { return _value.ToString(); }
-                internal override Value Evaluate(Preprocessor Context) { return new IntegerValue(_value); }
+                internal override Value Evaluate(Preprocessor context) { return new IntegerValue(_value); }
             }
             class CstBool : Expression
             {
                 bool _value;
-                public CstBool(Token Token, bool Value) : base(Token)
+                public CstBool(Token token, bool value) : base(token)
                 {
-                    _value = Value;
+                    _value = value;
                 }
                 public override string ToString() { return _value.ToString(); }
-                internal override Value Evaluate(Preprocessor Context) { return new BooleanValue(_value); }
+                internal override Value Evaluate(Preprocessor context) { return new BooleanValue(_value); }
             }
 
             class Defined : Expression
             {
                 bool _value;
                 Token _name;
-                public Defined(Token Name, bool Value) : base(Name)
+                public Defined(Token name, bool value) : base(name)
                 {
-                    _value = Value;
-                    _name = Name;
+                    _value = value;
+                    _name = name;
                 }
                 public override string ToString() { return "defined(" + _name.Value.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context) { return new BooleanValue(_value); }
+                internal override Value Evaluate(Preprocessor context) { return new BooleanValue(_value); }
             }
 
             class Add : Expression
             {
                 Expression _left;
                 Expression _right;
-                public Add(Token Token, Expression left, Expression right) : base(Token)
+                public Add(Token token, Expression left, Expression right) : base(token)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " + " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context)
+                internal override Value Evaluate(Preprocessor context)
                 {
-                    Value leftValue = _left.Evaluate(Context);
-                    Value rightValue = _right.Evaluate(Context);
+                    Value leftValue = _left.Evaluate(context);
+                    Value rightValue = _right.Evaluate(context);
 
                     switch (leftValue)
                     {
@@ -137,7 +138,7 @@ namespace Runic.C
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " - " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context)
+                internal override Value Evaluate(Preprocessor context)
                 {
                     return new BooleanValue(false);
                 }
@@ -152,7 +153,7 @@ namespace Runic.C
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " * " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context)
+                internal override Value Evaluate(Preprocessor context)
                 {
                     return new BooleanValue(false);
                 }
@@ -167,7 +168,7 @@ namespace Runic.C
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " / " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context)
+                internal override Value Evaluate(Preprocessor context)
                 {
                     return new BooleanValue(false);
                 }
@@ -182,7 +183,7 @@ namespace Runic.C
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " % " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context)
+                internal override Value Evaluate(Preprocessor context)
                 {
                     return new BooleanValue(false);
                 }
@@ -197,7 +198,7 @@ namespace Runic.C
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " ^ " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context)
+                internal override Value Evaluate(Preprocessor context)
                 {
                     return new BooleanValue(false);
                 }
@@ -390,16 +391,16 @@ namespace Runic.C
             {
                 Expression _left;
                 Expression _right;
-                public BooleanAnd(Token Token, Expression left, Expression right) : base(Token)
+                public BooleanAnd(Token token, Expression left, Expression right) : base(token)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " && " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor Context)
+                internal override Value Evaluate(Preprocessor context)
                 {
-                    Value left = _left.Evaluate(Context);
-                    Value right = _right.Evaluate(Context);
+                    Value left = _left.Evaluate(context);
+                    Value right = _right.Evaluate(context);
 
                     bool bLeft = false;
                     bool bRight = false;
@@ -419,10 +420,10 @@ namespace Runic.C
             }
 
             Stack<Token> operatorStack = new Stack<Token>();
-            static bool IsOperator(Token Token)
+            static bool IsOperator(Token token)
             {
-                if (Token == null) { return false; }
-                switch (Token.Value)
+                if (token == null) { return false; }
+                switch (token.Value)
                 {
                     case "+":
                     case "-":
@@ -454,19 +455,19 @@ namespace Runic.C
                 }
                 return false;
             }
-            static bool IsSpecialOperator(Token Token)
+            static bool IsSpecialOperator(Token token)
             {
-                if (Token == null) { return false; }
-                switch (Token.Value)
+                if (token == null) { return false; }
+                switch (token.Value)
                 {
                     case "defined":
                         return true;
                 }
                 return false;
             }
-            static bool IsInvalidPreprocessorOperator(Token Token)
+            static bool IsInvalidPreprocessorOperator(Token token)
             {
-                switch (Token.Value)
+                switch (token.Value)
                 {
                     case "=":
                     case "+=":
@@ -483,77 +484,81 @@ namespace Runic.C
                 }
                 return false;
             }
-            static Expression CreateExpression(Token Operator, Stack<Expression> Expression)
+            static Expression CreateExpression(Token @operator, Stack<Expression> expression)
             {
-                if (Operator.Value == "!")
+                if (@operator.Value == "!")
                 {
-                    return new Not(Operator, Expression.Pop());
+                    return new Not(@operator, expression.Pop());
                 }
 
                 // Assume we have here a binary operation
-                if (Expression.Count < 2)
+                if (expression.Count < 2)
                 {
                     return null;
                 }
-                Expression right = Expression.Pop();
-                Expression left = Expression.Pop();
-                switch (Operator.Value)
+                Expression right = expression.Pop();
+                Expression left = expression.Pop();
+                switch (@operator.Value)
                 {
-                    case "-": return (new Sub(Operator, left, right));
-                    case "+": return (new Add(Operator, left, right));
-                    case "*": return (new Mul(Operator, left, right));
-                    case "/": return (new Div(Operator, left, right));
-                    case "%": return (new Mod(Operator, left, right));
-                    case "^": return (new Xor(Operator, left, right));
-                    case "&&": return (new BooleanAnd(Operator, left, right));
-                    case "||": return (new BooleanOr(Operator, left, right));
-                    case "<": return (new Cmp(Operator, left, Cmp.Operator.LowerThan, right));
-                    case ">": return (new Cmp(Operator, left, Cmp.Operator.GreaterThan, right));
-                    case "==": return (new Cmp(Operator, left, Cmp.Operator.Equal, right));
-                    case "!=": return (new Cmp(Operator, left, Cmp.Operator.NotEqual, right));
-                    case ">=": return (new Cmp(Operator, left, Cmp.Operator.GreaterOrEqual, right));
-                    case "<=": return (new Cmp(Operator, left, Cmp.Operator.LowerOrEqual, right));
+                    case "-": return (new Sub(@operator, left, right));
+                    case "+": return (new Add(@operator, left, right));
+                    case "*": return (new Mul(@operator, left, right));
+                    case "/": return (new Div(@operator, left, right));
+                    case "%": return (new Mod(@operator, left, right));
+                    case "^": return (new Xor(@operator, left, right));
+                    case "&&": return (new BooleanAnd(@operator, left, right));
+                    case "||": return (new BooleanOr(@operator, left, right));
+                    case "<": return (new Cmp(@operator, left, Cmp.Operator.LowerThan, right));
+                    case ">": return (new Cmp(@operator, left, Cmp.Operator.GreaterThan, right));
+                    case "==": return (new Cmp(@operator, left, Cmp.Operator.Equal, right));
+                    case "!=": return (new Cmp(@operator, left, Cmp.Operator.NotEqual, right));
+                    case ">=": return (new Cmp(@operator, left, Cmp.Operator.GreaterOrEqual, right));
+                    case "<=": return (new Cmp(@operator, left, Cmp.Operator.LowerOrEqual, right));
                 }
 
-                throw new Exception("Internal error: Invalid operator: " + Operator.Value + "(" + Operator.File + ":l" + Operator.StartLine + ")");
+                throw new Exception("Internal error: Invalid operator: " + @operator.Value + "(" + @operator.File + ":l" + @operator.StartLine + ")");
             }
-            static void ProcessOperator(Token Operator, Stack<Token> Operators, Stack<Expression> Expressions)
+            static void ProcessOperator(Token @operator, Stack<Token> operators, Stack<Expression> expressions)
             {
-                switch (Operator.Value)
+                switch (@operator.Value)
                 {
                     case ":":
-                        Expression right = Expressions.Pop();
-                        while (Operators.Count > 0 && (Operators.Peek().Value != "?"))
+                        Expression right = expressions.Pop();
+                        while (operators.Count > 0 && (operators.Peek().Value != "?"))
                         {
-                            ProcessOperator(Operators.Pop(), Operators, Expressions);
+                            ProcessOperator(operators.Pop(), operators, expressions);
                         }
-                        if (Operators.Count > 0)
+                        if (operators.Count > 0)
                         {
-                            Operators.Pop();
+                            operators.Pop();
                         }
                         else
                         {
                             // __TODO__ syntax error
                         }
-                        Expression left = Expressions.Pop();
-                        Expression cond = Expressions.Pop();
-                        Expressions.Push(new Ternary(Operator, cond, left, right));
+                        Expression left = expressions.Pop();
+                        Expression cond = expressions.Pop();
+                        expressions.Push(new Ternary(@operator, cond, left, right));
                         return;
                 }
-                Expression expression = CreateExpression(Operator, Expressions);
+                Expression expression = CreateExpression(@operator, expressions);
                 if (expression == null)
                 {
                     // _TODO__ Return an error here
                     return;
                 }
-                Expressions.Push(expression);
+                expressions.Push(expression);
             }
             public static bool Evaluate(Preprocessor Context, Token[] Expression)
             {
                 TokenQueue tokens = new TokenQueue(Expression);
                 Stack<Expression> expressions = new Stack<Expression>();
                 Stack<Token> operators = new Stack<Token>();
+#if NET6_0_OR_GREATER
                 Token? token = null;
+#else
+                Token token = null;
+#endif
                 while (true)
                 {
                     token = tokens.ReadNextToken();
@@ -643,7 +648,11 @@ namespace Runic.C
 
                     if (Preprocessor.IsValidMacroName(token.Value))
                     {
+#if NET6_0_OR_GREATER
                         Preprocessor.Macro? macro = Context.ResolveMacro(token.Value);
+#else
+                        Preprocessor.Macro macro = Context.ResolveMacro(token.Value);
+#endif
                         if (macro != null)
                         {
                             Preprocessor.Macro.Regular macroRegular = macro as Preprocessor.Macro.Regular;
@@ -665,7 +674,11 @@ namespace Runic.C
                         {
                             continue;
                         }
+#if NET6_0_OR_GREATER
                         Literal? literal = Literal.Parse(token);
+#else
+                        Literal literal = Literal.Parse(token);
+#endif
                         if (literal == null)
                         {
                             Context.Warning_IfDirectiveUndefinedValue(token);

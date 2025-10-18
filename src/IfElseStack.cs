@@ -23,6 +23,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 
 namespace Runic.C
 {
@@ -44,35 +45,35 @@ namespace Runic.C
             public bool CurrentState { get { return _levels.Count == 0 || _levels.Peek().currentState; } }
             public bool Disabled { get { return _levels.Count != 0 && _levels.Peek().disabled; } }
 
-            public void EnterIf(Token Token, bool Condition)
+            public void EnterIf(Token token, bool condition)
             {
                 Level level = new Level();
-                level.enterToken = Token;
+                level.enterToken = token;
                 level.elseToken = null;
-                level.currentState = Condition;
-                level.validStateSeen = Condition;
+                level.currentState = condition;
+                level.validStateSeen = condition;
                 level.disabled = false;
                 _levels.Push(level);
             }
-            public void EnterDisabledIf(Token Token)
+            public void EnterDisabledIf(Token token)
             {
                 Level level = new Level();
-                level.enterToken = Token;
+                level.enterToken = token;
                 level.elseToken = null;
                 level.currentState = false;
                 level.validStateSeen = false;
                 level.disabled = true;
                 _levels.Push(level);
             }
-            public void EnterDisabledElse(Token Token)
+            public void EnterDisabledElse(Token token)
             {
                 Level currentLevel = _levels.Peek();
-                currentLevel.elseToken = Token;
+                currentLevel.elseToken = token;
             }
-            public void EnterElse(Token Token)
+            public void EnterElse(Token token)
             {
                 Level currentLevel = _levels.Peek();
-                currentLevel.elseToken = Token;
+                currentLevel.elseToken = token;
                 if (!currentLevel.validStateSeen)
                 {
                     currentLevel.currentState = !currentLevel.currentState;
@@ -82,11 +83,11 @@ namespace Runic.C
                     currentLevel.currentState = false;
                 }
             }
-            public void EnterElseIf(Token Token, bool Condition)
+            public void EnterElseIf(Token token, bool condition)
             {
                 Level currentLevel = _levels.Peek();
-                currentLevel.elifToken = Token;
-                if (Condition && !currentLevel.validStateSeen)
+                currentLevel.elifToken = token;
+                if (condition && !currentLevel.validStateSeen)
                 {
                     currentLevel.currentState = true;
                     currentLevel.validStateSeen = true;
@@ -96,15 +97,15 @@ namespace Runic.C
                     currentLevel.currentState = false;
                 }
             }
-            public void EnterDisabledElseIf(Token Token)
+            public void EnterDisabledElseIf(Token token)
             {
                 Level currentLevel = _levels.Peek();
-                currentLevel.elifToken = Token;
+                currentLevel.elifToken = token;
             }
-            public void ExitIf(Token Token)
+            public void ExitIf(Token token)
             {
                 Level level = _levels.Pop();
-                level.exitToken = Token;
+                level.exitToken = token;
             }
         }
     }

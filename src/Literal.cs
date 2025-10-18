@@ -76,8 +76,13 @@ namespace Runic.C
             public BigInteger ExponantPart { get { return _exponantPart; } }
             bool _exponantNegative;
             public bool ExponantNegative { get { return _exponantNegative; } }
+#if NET6_0_OR_GREATER
             Token? _token;
             public Token? Token { get { return _token; } }
+#else
+            Token _token;
+            public Token Token { get { return _token; } }
+#endif
             public static int ToInt32(BigInteger bigInteger, out bool overflow)
             {
                 overflow = false;
@@ -95,11 +100,15 @@ namespace Runic.C
                     return sresult;
                 }
             }
-            public static Literal? Parse(Token Token)
+#if NET6_0_OR_GREATER
+            public static Literal? Parse(Token token)
+#else
+            public static Literal Parse(Token token)
+#endif
             {
                 Literal literal = new Literal();
-                literal._token = Token;
-                bool result = LiteralParser.ParseNumerical(Token, out literal._isHex, out literal._isOctal, out literal._isOctal, out literal._isUnsigned, out literal._isLong, out literal._isLongLong, out literal._isFloat, out literal._isDouble, out literal._isLongDouble, out literal._negative, out literal._integralPart, out literal._decimalPart, out literal._decimalPartFraction, out literal._exponantPart, out literal._exponantNegative);
+                literal._token = token;
+                bool result = LiteralParser.ParseNumerical(token, out literal._isHex, out literal._isOctal, out literal._isOctal, out literal._isUnsigned, out literal._isLong, out literal._isLongLong, out literal._isFloat, out literal._isDouble, out literal._isLongDouble, out literal._negative, out literal._integralPart, out literal._decimalPart, out literal._decimalPartFraction, out literal._exponantPart, out literal._exponantNegative);
                 if (result)
                 {
                     return literal;
