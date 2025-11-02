@@ -352,10 +352,23 @@ namespace Runic.C
         public virtual Macro ResolveMacro(string macroName)
 #endif
         {
+#if NET6_0_OR_GREATER
+            Macro? macro;
+#else
+            Macro macro;
+#endif
+            if (_macros.TryGetValue(macroName, out macro))
+            {
+                return macro;
+            }
             return null;
         }
         public virtual void UndefMacro(Macro macro)
         {
+            if (_macros.ContainsKey(macro.Name))
+            {
+                _macros.Remove(macro.Name);
+            }
             return;
         }
         public virtual void Warning_IgnoredExtraArgument(Token directive) { }
