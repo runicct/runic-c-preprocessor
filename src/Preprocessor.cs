@@ -381,6 +381,8 @@ namespace Runic.C
         public virtual void Warning_MismatchedDirective(Token directive) { }
         public virtual void Warning_MacroRedefinition(Token directive, string macroName, Macro oldMacro, Macro newMacro) { }
         public virtual void Warning_ExtraToken(Token directive, Token extra) { }
+        public virtual void Warning_BitwiseOperatorUsedWithMixedTypes(Token token) { }
+        public virtual void Error_OperatorExpectsIntegerConstants(Token token) { }
         public virtual void Error_InvalidMacroCall(Macro name, Token token) { }
         public virtual void Error_IfDirectiveInvalidExpression(Token token) { }
         public virtual void Error_IfDirectiveInvalidFunction(Token function, Token token) { }

@@ -55,6 +55,53 @@ namespace Runic.C
                 public Expression(Token token) { _Token = token; }
                 internal abstract Value Evaluate(Preprocessor context);
             }
+            abstract class BinaryExpression : Expression
+            {
+                Expression _left;
+                Expression _right;
+                public BinaryExpression(Token token, Expression left, Expression right) : base(token)
+                {
+                    _left = left;
+                    _right = right;
+                }
+                internal override Value Evaluate(Preprocessor context)
+                {
+                    Value leftValue = _left.Evaluate(context);
+                    Value rightValue = _right.Evaluate(context);
+
+                    switch (leftValue)
+                    {
+                        case IntegerValue intLeftValue:
+                            {
+                                switch (rightValue)
+                                {
+                                    case IntegerValue intRightValue: return Evaluate(context, intLeftValue, intRightValue);
+                                    case BooleanValue boolRightValue: return Evaluate(context, intLeftValue, boolRightValue);
+                                }
+                            }
+                            break;
+                        case BooleanValue boolLeftValue:
+                            {
+                                switch (rightValue)
+                                {
+                                    case IntegerValue intRightValue: return Evaluate(context, boolLeftValue, intRightValue);
+                                    case BooleanValue boolRightValue: return Evaluate(context, boolLeftValue, boolRightValue);
+                                }
+                            }
+                            break;
+                    }
+
+                    context.Error_OperatorExpectsIntegerConstants(Token);
+
+                    return new IntegerValue(0);
+                }
+
+                internal abstract Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right);
+                internal abstract Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right);
+                internal abstract Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right);
+                internal abstract Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right);
+
+            }
             class CstInteger : Expression
             {
                 BigInteger _value;
@@ -89,120 +136,157 @@ namespace Runic.C
                 internal override Value Evaluate(Preprocessor context) { return new BooleanValue(_value); }
             }
 
-            class Add : Expression
+            class Add : BinaryExpression
             {
                 Expression _left;
                 Expression _right;
-                public Add(Token token, Expression left, Expression right) : base(token)
+                public Add(Token token, Expression left, Expression right) : base(token, left, right)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " + " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor context)
-                {
-                    Value leftValue = _left.Evaluate(context);
-                    Value rightValue = _right.Evaluate(context);
-
-                    switch (leftValue)
-                    {
-                        case IntegerValue intLeftValue:
-                            {
-                                switch (rightValue)
-                                {
-                                    case IntegerValue intRightValue: return new IntegerValue(intLeftValue.Value + intRightValue.Value);
-                                    case BooleanValue boolRightValue: return new IntegerValue(intLeftValue.Value + (boolRightValue.Value ? 1 : 0));
-                                }
-                                return intLeftValue;
-                            }
-                        case BooleanValue boolLeftValue:
-                            {
-                                switch (rightValue)
-                                {
-                                    case IntegerValue intRightValue: return new IntegerValue((boolLeftValue.Value ? 1 : 0) + intRightValue.Value);
-                                    case BooleanValue boolRightValue: return new IntegerValue((boolLeftValue.Value ? 1 : 0) + (boolRightValue.Value ? 1 : 0));
-                                }
-                                return boolLeftValue;
-                            }
-                    }
-                    return new BooleanValue(false);
-                }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new IntegerValue((left.Value ? 1 : 0) + (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { return new IntegerValue((left.Value ? 1 : 0) + right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { return new IntegerValue(left.Value + (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue(left.Value + right.Value); }
             }
-            class Sub : Expression
+            class Sub : BinaryExpression
             {
                 Expression _left;
                 Expression _right;
-                public Sub(Token Token, Expression left, Expression right) : base(Token)
+                public Sub(Token token, Expression left, Expression right) : base(token, left, right)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " - " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor context)
-                {
-                    return new BooleanValue(false);
-                }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new IntegerValue((left.Value ? 1 : 0) - (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { return new IntegerValue((left.Value ? 1 : 0) - right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { return new IntegerValue(left.Value - (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue(left.Value - right.Value); }
             }
-            class Mul : Expression
+            class Mul : BinaryExpression
             {
                 Expression _left;
                 Expression _right;
-                public Mul(Token Token, Expression left, Expression right) : base(Token)
+                public Mul(Token Token, Expression left, Expression right) : base(Token, left, right)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " * " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor context)
-                {
-                    return new BooleanValue(false);
-                }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new IntegerValue((left.Value ? 1 : 0) * (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { return new IntegerValue((left.Value ? 1 : 0) * right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { return new IntegerValue(left.Value * (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue(left.Value * right.Value); }
             }
-            class Div : Expression
+            class Div : BinaryExpression
             {
                 Expression _left;
                 Expression _right;
-                public Div(Token Token, Expression left, Expression right) : base(Token)
+                public Div(Token Token, Expression left, Expression right) : base(Token, left, right)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " / " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor context)
-                {
-                    return new BooleanValue(false);
-                }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { if (!right.Value) { return new IntegerValue(0); }  return new IntegerValue((left.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { if (right.Value == 0) { return new IntegerValue(0); } return new IntegerValue((left.Value ? 1 : 0) / right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { if (!right.Value) { return new IntegerValue(0); } return left; }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { if (right.Value == 0) { return new IntegerValue(0); } return new IntegerValue(left.Value / right.Value); }
             }
-            class Mod : Expression
+            class Mod : BinaryExpression
             {
                 Expression _left;
                 Expression _right;
-                public Mod(Token Token, Expression left, Expression right) : base(Token)
+                public Mod(Token Token, Expression left, Expression right) : base(Token, left, right)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " % " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor context)
-                {
-                    return new BooleanValue(false);
-                }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { if (!right.Value) { return new IntegerValue(0); } return new IntegerValue(0); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { if (right.Value == 0) { return new IntegerValue(0); } return new IntegerValue((left.Value ? 1 : 0) % right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { if (!right.Value) { return new IntegerValue(0); } return left; }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { if (right.Value == 0) { return new IntegerValue(0); } return new IntegerValue(left.Value % right.Value); }
             }
-            class Xor : Expression
+            class Xor : BinaryExpression
             {
                 Expression _left;
                 Expression _right;
-                public Xor(Token Token, Expression left, Expression right) : base(Token)
+                public Xor(Token Token, Expression left, Expression right) : base(Token, left, right)
                 {
                     _left = left;
                     _right = right;
                 }
                 public override string ToString() { return "(" + _left.ToString() + " ^ " + _right.ToString() + ")"; }
-                internal override Value Evaluate(Preprocessor context)
-                {
-                    return new BooleanValue(false);
-                }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new IntegerValue((left.Value ? 1 : 0) ^ (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { context.Warning_BitwiseOperatorUsedWithMixedTypes(Token); return new IntegerValue((left.Value ? 1 : 0) ^ right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { context.Warning_BitwiseOperatorUsedWithMixedTypes(Token); return new IntegerValue(left.Value ^ (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue(left.Value ^ right.Value); }
             }
+            class And : BinaryExpression
+            {
+                Expression _left;
+                Expression _right;
+                public And(Token Token, Expression left, Expression right) : base(Token, left, right)
+                {
+                    _left = left;
+                    _right = right;
+                }
+                public override string ToString() { return "(" + _left.ToString() + " & " + _right.ToString() + ")"; }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new BooleanValue(left.Value && right.Value); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { context.Warning_BitwiseOperatorUsedWithMixedTypes(Token); return new IntegerValue((left.Value ? 1 : 0) & right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { context.Warning_BitwiseOperatorUsedWithMixedTypes(Token); return new IntegerValue(left.Value & (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue(left.Value & right.Value); }
+            }
+            class Or : BinaryExpression
+            {
+                Expression _left;
+                Expression _right;
+                public Or(Token Token, Expression left, Expression right) : base(Token, left, right)
+                {
+                    _left = left;
+                    _right = right;
+                }
+                public override string ToString() { return "(" + _left.ToString() + " | " + _right.ToString() + ")"; }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new BooleanValue(left.Value || right.Value); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { context.Warning_BitwiseOperatorUsedWithMixedTypes(Token); return new IntegerValue((left.Value ? 1 : 0) | right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { context.Warning_BitwiseOperatorUsedWithMixedTypes(Token); return new IntegerValue(left.Value | (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue(left.Value | right.Value); }
+            }
+            class Shl : BinaryExpression
+            {
+                Expression _left;
+                Expression _right;
+                public Shl(Token Token, Expression left, Expression right) : base(Token, left, right)
+                {
+                    _left = left;
+                    _right = right;
+                }
+                public override string ToString() { return "(" + _left.ToString() + " << " + _right.ToString() + ")"; }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new IntegerValue((left.Value ? 1 : 0) << (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { return new IntegerValue((ulong)(left.Value ? 1 : 0) << (int)right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { return new IntegerValue(left.Value << (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue((ulong)left.Value << (int)right.Value); }
+            }
+            class Shr : BinaryExpression
+            {
+                Expression _left;
+                Expression _right;
+                public Shr(Token Token, Expression left, Expression right) : base(Token, left, right)
+                {
+                    _left = left;
+                    _right = right;
+                }
+                public override string ToString() { return "(" + _left.ToString() + " >> " + _right.ToString() + ")"; }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, BooleanValue right) { return new IntegerValue((left.Value ? 1 : 0) >> (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, BooleanValue left, IntegerValue right) { return new IntegerValue((ulong)(left.Value ? 1 : 0) >> (int)right.Value); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, BooleanValue right) { return new IntegerValue(left.Value >> (right.Value ? 1 : 0)); }
+                internal override Value Evaluate(Preprocessor context, IntegerValue left, IntegerValue right) { return new IntegerValue((ulong)left.Value >> (int)right.Value); }
+            }
+
             class Cmp : Expression
             {
                 public enum Operator
@@ -506,6 +590,10 @@ namespace Runic.C
                     case "/": return (new Div(@operator, left, right));
                     case "%": return (new Mod(@operator, left, right));
                     case "^": return (new Xor(@operator, left, right));
+                    case "&": return (new And(@operator, left, right));
+                    case "|": return (new Or(@operator, left, right));
+                    case "<<": return (new Shl(@operator, left, right));
+                    case ">>": return (new Shr(@operator, left, right));
                     case "&&": return (new BooleanAnd(@operator, left, right));
                     case "||": return (new BooleanOr(@operator, left, right));
                     case "<": return (new Cmp(@operator, left, Cmp.Operator.LowerThan, right));
