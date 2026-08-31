@@ -382,6 +382,7 @@ namespace Runic.C
         public virtual void Warning_MacroRedefinition(Token directive, string macroName, Macro oldMacro, Macro newMacro) { }
         public virtual void Warning_ExtraToken(Token directive, Token extra) { }
         public virtual void Warning_BitwiseOperatorUsedWithMixedTypes(Token token) { }
+        public virtual void Warning_UserDefinedWarning(Token directive, string errorMessage) { }
         public virtual void Error_OperatorExpectsIntegerConstants(Token token) { }
         public virtual void Error_InvalidMacroCall(Macro name, Token token) { }
         public virtual void Error_IfDirectiveInvalidExpression(Token token) { }
@@ -395,6 +396,8 @@ namespace Runic.C
         public virtual void Error_IncludeDirectiveFileNotFound(Token include, string file) { }
         public virtual void Error_UserDefinedError(Token directive, string errorMessage) { }
         public virtual void Error_InvalidTokenProducedByConcatenation(Macro macro, Token token) { }
+        public virtual void Error_InvalidPreprocessorDirective(Token directive) { }
+        public virtual void Error_InvalidLineNumber(Token directive, Token number) { }
         public static bool IsValidMacroName(string name)
         {
             if (name == null) { return false; }
@@ -454,7 +457,8 @@ namespace Runic.C
             }
             for (int n = 0; n < tokens.Length; n++)
             {
-                if (tokens[n].Value == "") { continue; }
+                if (tokens[n].Value == null) { continue; }
+                if (tokens[n].Value.Trim() == "") { continue; }
                 if (tokens[n].Value.StartsWith("<") && tokens[n].Value.EndsWith(">"))
                 {
                     string fileName = tokens[n].Value.Substring(1, tokens[n].Value.Length - 2);
@@ -467,7 +471,7 @@ namespace Runic.C
                     if (includeTokens == null) { Error_IncludeDirectiveFileNotFound(directive, fileName); }
                     else { _tokenQueue.FrontLoadTokens(includeTokens); }
                 }
-                else if(tokens[n].Value.StartsWith("\"") && tokens[n].Value.EndsWith("\""))
+                else if (tokens[n].Value.StartsWith("\"") && tokens[n].Value.EndsWith("\""))
                 {
                     string fileName = tokens[n].Value.Substring(1, tokens[n].Value.Length - 2);
                     Token file = CreateToken(tokens[n].StartLine, tokens[n].StartColumn, tokens[n].EndLine, tokens[n].EndColumn, tokens[n].File, fileName);
@@ -478,6 +482,11 @@ namespace Runic.C
 #endif
                     if (includeTokens == null) { Error_IncludeDirectiveFileNotFound(directive, fileName); }
                     else { _tokenQueue.FrontLoadTokens(includeTokens); }
+                }
+                else if (tokens[n].Value.StartsWith("//") || (tokens[n].Value.StartsWith("/*") && tokens[n].Value.EndsWith("*/")))
+                {
+                    // Ignore comments
+                    continue;
                 }
                 else
                 {
@@ -872,6 +881,60 @@ namespace Runic.C
 
             Error_UserDefinedError(directive, message.ToString());
         }
+        void processWarningDirective(Token directive, Token[] tokens)
+        {
+            StringBuilder message = new StringBuilder();
+
+            for (int n = 0; n < tokens.Length; n++)
+            {
+                message.Append(tokens[n].Value);
+            }
+
+            Warning_UserDefinedWarning(directive, message.ToString());
+        }
+        public virtual void Pragma(Token directive, Token[] tokens) { }
+
+        void processPragmaDirective(Token directive, Token[] tokens) { Pragma(directive, tokens); }
+        public virtual void Line(Token directive, ulong lineNumber, Token file) { }
+        void processLineDirective(Token directive, Token[] tokens)
+        {
+            if (tokens.Length == 0) { Warning_IncompletePreprocessorDirective(directive); return; }
+            int n = 0;
+            for (; n < tokens.Length; n++)
+            {
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n") { break; }
+            }
+            Token lineNumberToken = null;
+            for (; n < tokens.Length; n++)
+            {
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n")
+                {
+                    lineNumberToken = tokens[n];
+                    break;
+                }
+            }
+            if (lineNumberToken == null) { Warning_IncompletePreprocessorDirective(directive); return; }
+            ulong lineNumber = 0;
+            if (!ulong.TryParse(lineNumberToken.Value, out lineNumber)) { Error_InvalidLineNumber(directive, lineNumberToken); return; }
+            n++;
+            for (; n < tokens.Length; n++)
+            {
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n") { break; }
+            }
+
+            if (n >= tokens.Length) { return; }
+            Token file = tokens[n];
+            n++;
+            for (; n < tokens.Length; n++)
+            {
+                if (tokens[n].Value != " " && tokens[n].Value != "\\\n" && tokens[n].Value != null && !tokens[n].Value.StartsWith("//") && !(tokens[n].Value.StartsWith("/*") && tokens[n].Value.StartsWith("*/")))
+                {
+                    Warning_ExtraToken(directive, tokens[n]);
+                    break;
+                }
+            }
+            Line(directive, lineNumber, file);
+        }
         void ProcessDirective(Token directive, Token[] arguments)
         {
             string directiveName = directive.Value.ToLowerInvariant();
@@ -889,11 +952,16 @@ namespace Runic.C
 
             switch (directive.Value.ToLowerInvariant())
             {
-                case "include": if (preprocessorIfElseStack.CurrentState) { processIncludeDirective(directive, arguments); } return;
-                case "define": if (preprocessorIfElseStack.CurrentState) { processDefineDirective(directive, arguments); } return;
-                case "undef": if (preprocessorIfElseStack.CurrentState) { processUndefDirective(directive, arguments); } return;
+                case "include": processIncludeDirective(directive, arguments); return;
+                case "define": processDefineDirective(directive, arguments); return;
+                case "undef": processUndefDirective(directive, arguments); return;
                 case "error": processErrorDirective(directive, arguments); return;
+                case "warning": processWarningDirective(directive, arguments); return;
+                case "pragma": processPragmaDirective(directive, arguments); return;
+                case "line": processLineDirective(directive, arguments); return;
             }
+
+            Error_InvalidPreprocessorDirective(directive);
         }
         public Token ReadNextToken()
         {
@@ -930,7 +998,7 @@ namespace Runic.C
                             if (argumentToken == null)
                             {
                                 ProcessDirective(directiveToken, arguments.ToArray());
-                                return null;
+                                goto restart;
                             }
 
                             switch (argumentToken.Value)
@@ -995,7 +1063,7 @@ namespace Runic.C
                                 if (token == null)
                                 {
                                     Error_InvalidMacroCall(macroWithArguments, previousToken);
-                                    return null;
+                                    goto restart;
                                 }
 
                                 if (token.Value != "(")
@@ -1014,10 +1082,7 @@ namespace Runic.C
                                         while (true)
                                         {
                                             token = _tokenQueue.ReadNextToken();
-                                            if (token == null)
-                                            {
-                                                return null;
-                                            }
+                                            if (token == null) { return null; }
 
                                             if (token.Value == ")")
                                             {
@@ -1060,7 +1125,7 @@ namespace Runic.C
                                         if (argumentFragment == null)
                                         {
                                             Error_InvalidMacroCall(macroWithArguments, previousToken);
-                                            return null;
+                                            goto restart;
                                         }
 
                                         previousToken = token;
